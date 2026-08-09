@@ -48,6 +48,18 @@ export class InputController {
     return this;
   }
 
+  /**
+   * Removes a handler. Needed because the interaction controller is rebuilt for
+   * every level while this input controller outlives them all -- without this,
+   * old handlers would pile up, each still pointing at a disposed level.
+   */
+  off(event, fn) {
+    const list = this._listeners[event];
+    const index = list.indexOf(fn);
+    if (index !== -1) list.splice(index, 1);
+    return this;
+  }
+
   _emit(event, payload) {
     for (const fn of this._listeners[event]) fn(payload);
   }

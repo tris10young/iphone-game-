@@ -4,9 +4,8 @@ Guidance for Claude Code (and other AI assistants) working in this repository.
 
 ## What this is
 
-**Skyward — Puzzle 01**: a playable vertical slice of a 3D puzzle game for
-iPhone, built as a web game with Three.js and WebGL. One complete level, three
-puzzle mechanisms, start to finish.
+**Skyward**: a 3D puzzle game for iPhone, built as a web game with Three.js and
+WebGL. Ten levels of increasing difficulty, three kinds of mechanism.
 
 Read `README.md` for the design overview and `IPHONE_BUILD_GUIDE.md` for how it
 gets onto a phone. This file covers what you need to know before changing code.
@@ -51,9 +50,18 @@ Two caveats that will mislead you if you forget them:
   calls and triangles from `renderer.info`, not fps. Current baseline: ~95 draw
   calls including the shadow pass, ~39k triangles.
 
-A headless playthrough that walks the whole level and asserts each gate is the
-best regression test available; write one rather than eyeballing a screenshot
-when changing navigation or puzzle logic.
+Two committed tests matter more than any screenshot:
+
+```bash
+npx --yes http-server -p 8099 -s .    # both tests need this
+node tests/audit-levels.mjs           # fast: proves all ten levels solvable
+node tests/playthrough.mjs            # slow: plays all ten in the real game
+```
+
+`playthrough.mjs` uses the solver as the player, so it exercises navigation,
+gating, the rider rule and the completion sequence together. It takes tens of
+minutes under software rendering — its stdout is block-buffered when piped, so
+it looks like it has hung when it has not.
 
 ## Architecture
 
@@ -88,10 +96,16 @@ requires agreement), and **merged static geometry cannot be moved individually**
 
 ## Conventions that matter
 
-- **`LAYOUT` in `src/world/Level.js` holds every level coordinate.** Change
-  geometry there, not scattered through the builders. Nav nodes are derived from
-  the same constants; if you move a platform and forget its nodes, the level
-  silently becomes unsolvable — run a playthrough test.
+- **Levels are data.** `src/world/Levels.js` holds all ten as module
+  placements plus links; `Modules.js` turns each module into geometry *and* its
+  nav nodes from the same numbers, so a pad cannot be moved without its nodes
+  following. Never place a nav node by hand in a level definition.
+- **Never trust a level you have not audited.** `node tests/audit-levels.mjs`
+  brute-forces every level's mechanism state space and reports whether it is
+  solvable, whether it starts already solved, and its true minimum move count.
+  It also asserts the difficulty curve is non-decreasing. Run it after touching
+  any coordinate. A hand-placed level that is silently unsolvable looks
+  completely fine.
 - **`src/world/Palette.js` holds every colour**, as named schemes (`coral`,
   `amber`, `mist`), selectable with `?scheme=` in the URL. Two rules define the
   look: a saturated background behind a single architectural hue (pale on pale
@@ -132,12 +146,16 @@ These were real bugs found by testing, and each is easy to recreate:
   ground and destroy the "no visible ground" requirement.
 - **Portrait is narrow.** A structure that sprawls horizontally cannot be framed
   on a phone. That is why the upper level folds back west over terrace A.
+- **A mechanism can be tapped from anywhere on screen.** Placing a control
+  somewhere hard to reach therefore gates *nothing*. A level built around "the
+  wheel is up on that balcony" was measured by the solver at par 2 instead of
+  the intended 4. Difficulty has to come from topology.
 - **Undersides need a bounce term.** Downward faces receive no sun, so without
   `Palette.bounce` feeding the hemisphere ground colour they collapse to near
   black and the floating masses read as heavy blots.
 
 ## Scope
 
-The brief was one polished level and explicitly *not* multiple levels,
-progression, currencies, menus, or online features. Do not add them. If asked to
-extend the game, ask whether the first level is finished first.
+Ten levels, a level select, and unlock progress. Deliberately still no score,
+stars, currency, timers, ads or online features — the brief ruled those out and
+nothing since has asked for them. Do not add them.

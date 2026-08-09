@@ -23,6 +23,7 @@ export class ElevatorPlatform extends PuzzleInteractable {
       easing: Easing.cinematic,
       initialIndex: 0,
       label: 'elevator',
+      kind: 'lift',
     });
 
     this.rise = rise;

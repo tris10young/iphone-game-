@@ -1,8 +1,8 @@
-# Skyward — Puzzle 01
+# Skyward
 
-A playable vertical slice of a 3D mobile puzzle game for iPhone. One complete
-level: a floating ancient structure above an endless cloud sea, three mechanisms
-to manipulate, and a portal at the top.
+A 3D puzzle game for iPhone. Ten levels of floating ancient structures above an
+endless cloud sea, three kinds of mechanism to manipulate, and a portal at the
+top of each.
 
 **To play it on your phone, follow [IPHONE_BUILD_GUIDE.md](IPHONE_BUILD_GUIDE.md).**
 The short version: serve this folder over HTTP and open it in Safari.
@@ -33,37 +33,42 @@ noted below.
 | Unity Input System | Pointer Events | One code path for touch on iPhone and mouse on desktop, which is exactly the "works in the editor and on device" requirement. |
 | Prefabs | Composable builder functions | `platform()`, `staircase()`, `pillar()`, `archWall()`, `carvedBand()`, `parapet()` — the same reuse, merged into few draw calls. |
 | Xcode build | Add to Home Screen | Fullscreen, own icon, portrait-locked, offline once cached. |
+| Scene per level | Data-driven level modules | Each module emits its geometry *and* its nav nodes from the same numbers, so a platform cannot be moved without its nodes following. |
 
-## The level
+## The levels
 
-Roughly 40 metres from the underside of the start platform to the temple roof.
-The route spirals upward and folds back over itself so the destination is in
-frame from the opening shot.
+Ten levels, in rising difficulty. "Moves" is the minimum number of mechanism
+activations needed, and it is not a guess -- `tests/audit-levels.mjs`
+brute-forces the entire mechanism state space of every level and reports the
+true optimum. The curve is verified to be non-decreasing.
 
-```
-start platform
-      │  stairs
-      ▼
-[1] ROTATING TOWER — arched passage, initially crosswise
-      │  stairs
-      ▼
-   terrace A
-      │
-[2] SLIDING BRIDGE — parked on a siding, slides across on rails
-      │
-      ▼
-   terrace B
-      │
-[3] ELEVATOR — must be ridden; rises 14m
-      │
-      ▼
- upper landing ──▶ temple ──▶ portal
-```
+| # | Name | Moves | Introduces |
+| --- | --- | --- | --- |
+| 1 | First Steps | 1 | Rotating tower |
+| 2 | The Span | 1 | Sliding bridge |
+| 3 | The Turn | 2 | Elbow passage — the drum becomes a router |
+| 4 | Crossing | 2 | Two mechanisms on one route |
+| 5 | Ascent | 2 | The elevator, which must be ridden |
+| 6 | Skyward | 3 | All three together |
+| 7 | The Knot | 3 | Nothing is on the way to anything else |
+| 8 | Order of Things | 4 | A drum two turns out of true |
+| 9 | Four Winds | 5 | Two routers in series |
+| 10 | The Long Climb | 6 | Everything, including riding a drum round |
 
-Each mechanism is readable without text: the drum's arch plainly faces the wrong
-way, the bridge's rails show where it is going before you touch anything, and
-the elevator's gold floor ring says *stand here*. A hint line appears only after
-six seconds of inactivity, and never while anything is moving.
+Difficulty is escalated with four knobs rather than by making anything fiddly:
+how many mechanisms block the route; whether a drum's passage is straight (a
+two-way switch, since 180 degrees is the same as 0) or an **elbow** (all four
+orientations distinct, so it routes between four landings); whether order
+matters; and whether a mechanism must be used more than once.
+
+Level 10 ends with a move the architecture produced rather than one that was
+designed in: you stand *inside* the rotating drum and turn it, riding round to
+an exit that was not previously connected to you. Navigation nodes are parented
+to the geometry they sit on, so it works with no special-casing — and the solver
+found it before any human did.
+
+Finishing a level unlocks the next. Progress is one integer in `localStorage`;
+there is no score, no stars and no currency.
 
 ## Controls
 
@@ -90,10 +95,13 @@ src/
     Palette.js        every colour in the game, in three deliberate tiers
     Materials.js      small shared material library
     Build.js          MeshBuilder + architectural parts, merged for draw calls
-    Level.js          Puzzle_01: layout, architecture, temple, nav graph
+    Levels.js         the ten level definitions
+    LevelBuilder.js   assembles a level: modules -> scene + nav graph
+    Modules.js        pad, flight, drum, span, shaft, shrine
     Sky.js            gradient dome, two cloud layers, motes, birds
   nav/
     NavGraph.js       walkable graph; nodes ride moving parts, edges gate routes
+    Solver.js         exhaustive solver: proves levels, and powers the hints
   character/
     Character.js      procedural traveller; no rig, no clips
     PlayerNavigation.js  path following against live node positions
@@ -114,13 +122,19 @@ src/
     Postprocessing.js bloom + colour grade + vignette
   audio/
     AudioSystem.js    every sound synthesised at runtime
-  ui/UI.js            all DOM interaction
+  ui/UI.js            all DOM interaction, level select, title cards
+tests/
+  audit-levels.mjs    proves all ten solvable; reports true difficulty
+  playthrough.mjs     plays all ten to completion in the real game
 vendor/three/         Three.js r185, committed so there is no build step
 ```
 
-Adding a fourth mechanism means subclassing `PuzzleInteractable`, implementing
-`applyState(value)`, and connecting nav edges gated on its state. Nothing else
-changes.
+Adding a fourth mechanism type means subclassing `PuzzleInteractable`,
+implementing `applyState(value)`, and adding a module that places it. Nothing
+else changes -- `PuzzleManager` dispatches on `mechanism.kind`, which is why ten
+levels needed no new wiring at all.
+
+Adding a level means adding one entry to `Levels.js` and running the audit.
 
 ## Notes on a few decisions
 
@@ -132,6 +146,12 @@ and works.
 texture (dust, motes, portal falloff) is drawn to a canvas at startup. Nothing to
 download, nothing to licence. `AudioSystem.registerSample(name, url)` swaps any
 cue for a real recording without touching another line.
+
+**Hints are solved, not written.** When the player has been still for eight
+seconds, the game runs the same exhaustive solver used to validate the levels,
+starting from wherever the traveller is standing, and names the next mechanism
+the shortest remaining solution needs. So a hint can never be wrong or stale,
+and not one line of hint text is authored per level.
 
 **Colour does work.** Static architecture is one hue, anything that moves is a
 more saturated version of it, and the destination is *glowing* turquoise and
@@ -155,8 +175,8 @@ iPhones.
   normal maps. Deliberate for a vertical slice, and the limit of how ornate the
   architecture can get.
 - **The app icon** is a generated gradient placeholder.
-- **One level, hard-coded.** `LAYOUT` in `Level.js` holds every number, but
-  there is no level format or editor.
+- **No level editor.** Levels are hand-written data in `Levels.js`. The audit
+  catches unsolvable ones, but placing them is still done by hand.
 
 ## Recommended next three
 

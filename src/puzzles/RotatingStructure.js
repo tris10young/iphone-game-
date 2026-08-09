@@ -7,28 +7,41 @@ import { Easing } from '../core/Easing.js';
 /**
  * PUZZLE 1 -- the rotating tower section.
  *
- * A drum built into the middle of the central tower with an arched passage cut
- * straight through it. The passage starts crosswise, so the stair landing to
- * the south meets a blank wall. One activation swings it through 90 degrees and
- * the route opens.
+ * A drum built into the middle of a tower with an arched passage cut through
+ * it. The passage starts crosswise, so the stair landing outside meets a blank
+ * wall; activating it swings the drum and the route opens.
+ *
+ * The passage comes in two shapes, and the difference is most of the game's
+ * difficulty range:
+ *   'straight' -- enters one side, leaves the opposite side. Two useful
+ *                 orientations, and 180 degrees is the same as 0.
+ *   'elbow'    -- enters one side, leaves the side at right angles. All four
+ *                 orientations are distinct, so the drum becomes a router: it
+ *                 decides which of four landings connects to which.
  *
  * The read has to be instant and wordless, so: the drum is terracotta against
  * cream, gold pivot rings top and bottom say "this turns", and the arch itself
  * is plainly a doorway pointing the wrong way.
  */
 export class RotatingStructure extends PuzzleInteractable {
-  constructor({ x = 0, y = 0, z = 0, size = 9, height = 5.5 } = {}) {
+  constructor({
+    x = 0, y = 0, z = 0, size = 9, height = 5.5,
+    states = [Math.PI / 2, 0], initialIndex = 0, duration = 2.6, shape = 'straight',
+  } = {}) {
     super('rotating_tower', {
-      // Start crosswise (90 degrees off), settle square with the walkway.
-      states: [Math.PI / 2, 0],
-      duration: 2.6,
+      states,
+      duration,
       easing: Easing.heavy,
-      initialIndex: 0,
+      initialIndex,
       label: 'rotating tower',
+      kind: 'rotate',
     });
 
     this.size = size;
     this.height = height;
+    this.shape = shape;
+    /** Local directions the passage opens onto, as unit-ish axis names. */
+    this.openings = shape === 'elbow' ? ['+z', '+x'] : ['+z', '-z'];
     this.passageHalfLength = size / 2 - 0.9;
 
     this.group.position.set(x, y, z);
@@ -50,13 +63,25 @@ export class RotatingStructure extends PuzzleInteractable {
     // slab there put two coplanar faces in the depth buffer -- the passage
     // flickered with z-fighting stripes. The walls simply stand on the deck.
 
-    // Two arched faces (the passage) and two solid flanks.
-    for (const sign of [1, -1]) {
-      archWall(mb, m.body, {
-        z: sign * (half - wall / 2), width: this.size, height: this.height,
-        depth: wall, openWidth: 3.4, openHeight: 4.0,
-      });
-      mb.box(wall, this.height, this.size - wall * 2, m.body, { x: sign * (half - wall / 2) });
+    // Four faces: arched where the passage opens, solid everywhere else.
+    const faces = [
+      { name: '+z', ry: 0, x: 0, z: half - wall / 2 },
+      { name: '-z', ry: 0, x: 0, z: -(half - wall / 2) },
+      { name: '+x', ry: Math.PI / 2, x: half - wall / 2, z: 0 },
+      { name: '-x', ry: Math.PI / 2, x: -(half - wall / 2), z: 0 },
+    ];
+    for (const face of faces) {
+      if (this.openings.includes(face.name)) {
+        archWall(mb, m.body, {
+          x: face.x, z: face.z, ry: face.ry,
+          width: this.size, height: this.height,
+          depth: wall, openWidth: 3.4, openHeight: 4.0,
+        });
+      } else {
+        const along = face.ry === 0;
+        mb.box(along ? this.size : wall, this.height, along ? wall : this.size,
+          m.body, { x: face.x, z: face.z });
+      }
     }
 
     // Cap and a carved band, so the drum reads as masonry rather than a tube.
@@ -75,17 +100,28 @@ export class RotatingStructure extends PuzzleInteractable {
       torus.dispose();
     }
 
-    // An engraved disc on each solid flank -- the obvious thing to tap.
-    for (const sign of [1, -1]) {
+    // An engraved disc on every solid face -- the obvious thing to tap, and it
+    // has to follow the openings so it never lands on a doorway.
+    const solid = ['+z', '-z', '+x', '-x'].filter((name) => !this.openings.includes(name));
+    for (const name of solid) {
+      const axis = name[1];
+      const sign = name[0] === '+' ? 1 : -1;
+      const cx = axis === 'x' ? sign * (half + 0.02) : 0;
+      const cz = axis === 'z' ? sign * (half + 0.02) : 0;
+      const spin = axis === 'x' ? Math.PI / 2 : 0;
+
       const disc = new THREE.CylinderGeometry(1.15, 1.15, 0.16, 20);
       disc.rotateZ(Math.PI / 2);
-      mb.add(disc, m.glow, new THREE.Matrix4().makeTranslation(sign * (half + 0.02), this.height * 0.55, 0));
+      disc.rotateY(spin);
+      mb.add(disc, m.glow, new THREE.Matrix4().makeTranslation(cx, this.height * 0.55, cz));
       disc.dispose();
+
       const spoke = new THREE.BoxGeometry(0.2, 0.34, 2.0);
       for (let i = 0; i < 3; i++) {
-        const rot = new THREE.Matrix4().makeRotationX((i * Math.PI) / 3);
         const place = new THREE.Matrix4()
-          .makeTranslation(sign * (half + 0.13), this.height * 0.55, 0).multiply(rot);
+          .makeTranslation(cx * 1.1, this.height * 0.55, cz * 1.1)
+          .multiply(new THREE.Matrix4().makeRotationY(spin))
+          .multiply(new THREE.Matrix4().makeRotationX((i * Math.PI) / 3));
         mb.add(spoke, m.accent, place);
       }
       spoke.dispose();

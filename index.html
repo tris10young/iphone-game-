@@ -32,17 +32,33 @@
 
     <div id="hint" class="hint" aria-live="polite"></div>
 
+    <div id="level-title" class="level-title" aria-live="polite">
+      <div class="level-title-number" id="level-title-number"></div>
+      <div class="level-title-name" id="level-title-name"></div>
+      <div class="level-title-sub" id="level-title-sub"></div>
+    </div>
+
     <div id="menu" class="panel hidden" role="dialog" aria-label="Paused">
       <h2>Paused</h2>
       <button class="text-button" data-action="resume">Resume</button>
       <button class="text-button" data-action="restart">Restart puzzle</button>
+      <button class="text-button" data-action="show-levels">Choose level</button>
       <button class="text-button" data-action="toggle-audio">Sound: <em data-audio-state>on</em></button>
       <button class="text-button" data-action="toggle-quality">Quality: <em data-quality-state>high</em></button>
     </div>
 
+    <div id="levels" class="panel hidden" role="dialog" aria-label="Choose a level">
+      <h2>Levels</h2>
+      <div class="level-grid" id="level-grid"></div>
+      <button class="text-button" data-action="close-levels">Back</button>
+    </div>
+
     <div id="complete" class="panel complete hidden" role="dialog" aria-label="Puzzle complete">
-      <h1>Puzzle Complete</h1>
-      <button class="text-button primary" data-action="replay">Replay</button>
+      <h1 id="complete-title">Puzzle Complete</h1>
+      <div class="complete-sub" id="complete-sub"></div>
+      <button class="text-button primary" data-action="next-level" id="next-level">Next Level</button>
+      <button class="text-button" data-action="replay">Replay</button>
+      <button class="text-button" data-action="show-levels">Choose level</button>
     </div>
   </div>
 

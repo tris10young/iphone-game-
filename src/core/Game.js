@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { Palette, SUN_DIRECTION } from '../world/Palette.js';
-import { buildLevel, LEVEL_FOCUS } from '../world/Level.js';
+import { buildLevel, disposeLevel } from '../world/LevelBuilder.js';
+import { LEVELS } from '../world/Levels.js';
+import { Progress } from './Progress.js';
 import { Sky } from '../world/Sky.js';
 import { Character } from '../character/Character.js';
 import { PlayerNavigation } from '../character/PlayerNavigation.js';
@@ -21,7 +23,7 @@ import { UI } from '../ui/UI.js';
  * knows about as few of the others as it can get away with.
  */
 
-const START_CAMERA = { azimuth: -0.45, polar: 0.96, frustumHeight: 54 };
+const DEFAULT_CAMERA = { azimuth: -0.5, polar: 0.94, frustumHeight: 64 };
 
 export class Game {
   constructor(canvas) {
@@ -80,11 +82,11 @@ export class Game {
     // shading starts to look muddy.
     this.sun = new THREE.DirectionalLight(Palette.sunLight, 2.15);
     this.sun.position.set(
-      LEVEL_FOCUS.x + SUN_DIRECTION.x * 70,
-      LEVEL_FOCUS.y + SUN_DIRECTION.y * 70,
-      LEVEL_FOCUS.z + SUN_DIRECTION.z * 70,
+      SUN_DIRECTION.x * 70,
+      SUN_DIRECTION.y * 70,
+      SUN_DIRECTION.z * 70,
     );
-    this.sun.target.position.copy(LEVEL_FOCUS);
+    this.sun.target.position.set(0, 0, 0);
     this.sun.castShadow = true;
     const shadow = this.sun.shadow;
     shadow.camera.left = -44;
@@ -115,48 +117,48 @@ export class Game {
   }
 
   _setupLevel() {
-    this.level = buildLevel();
-    this.scene.add(this.level.root);
+    // Only the things that outlive a level are built here. The level itself,
+    // and everything that holds a reference into it, is built by loadLevel().
     this.dust = new DustSystem(this.scene, { capacity: this.quality === 'low' ? 120 : 220 });
+    this.progress = new Progress();
+    this.levelIndex = 0;
+    this.level = null;
   }
 
   _setupPlayer() {
+    // The traveller is reused across levels; only its position changes.
     this.character = new Character();
     this.scene.add(this.character.root);
-    this.navigation = new PlayerNavigation(this.level.nav, this.character);
-    this.navigation.placeAt('start', 'start_n');
   }
 
   _setupCameraAndInput() {
+    // A placeholder focus; loadLevel() re-aims it at the real level immediately.
     this.cameraController = new CameraController(this.camera, {
-      focus: LEVEL_FOCUS,
-      frustumHeight: START_CAMERA.frustumHeight,
+      focus: new THREE.Vector3(0, 10, 0), ...DEFAULT_CAMERA,
     });
-    this.cameraController.jumpTo(START_CAMERA);
+    this.cameraController.jumpTo(DEFAULT_CAMERA);
 
     this.input = new InputController(this.canvas);
     this.input.on('orbit', ({ dx, dy }) => this.cameraController.orbit(dx, dy));
     this.input.on('zoom', ({ ratio }) => this.cameraController.zoom(ratio));
     this.input.on('press', () => this.cameraController.setDragging(true));
     this.input.on('release', () => this.cameraController.setDragging(false));
-
-    this.interaction = new InteractionController({
-      camera: this.camera,
-      input: this.input,
-      nav: this.level.nav,
-      navigation: this.navigation,
-      mechanisms: this.level.mechanisms,
-      pickTargets: this.level.pickTargets,
-    });
   }
 
   _setupSystems() {
     this.audio = new AudioSystem();
 
     this.ui = new UI({
+      levels: LEVELS,
       onResume: () => this._setPaused(false),
-      onRestart: () => { this.reset(); this._setPaused(false); },
-      onReplay: () => this.reset(),
+      onRestart: () => { this.restartLevel(); this._setPaused(false); },
+      onReplay: () => this.restartLevel(),
+      onNextLevel: () => this.loadLevel(this.levelIndex + 1),
+      onSelectLevel: (index) => {
+        if (!this.progress.isUnlocked(index)) return;
+        this.loadLevel(index);
+        this._setPaused(false);
+      },
       onToggleAudio: () => {
         this.audio.setEnabled(!this.audio.enabled);
         this.ui.setAudioState(this.audio.enabled);
@@ -166,6 +168,39 @@ export class Game {
     });
     this.ui.setAudioState(true);
     this.ui.setQualityState(this.quality);
+
+    this.post = new Postprocessing(this.renderer, this.scene, this.camera, { quality: this.quality });
+  }
+
+  /* ---------------- levels ---------------- */
+
+  /**
+   * Tears down the current level and builds another.
+   *
+   * Everything that holds a reference into a level -- navigation, interaction,
+   * puzzle wiring, the completion trigger -- is rebuilt rather than reset,
+   * because a half-updated controller pointing at a disposed level is a much
+   * nastier class of bug than simply constructing three small objects.
+   */
+  loadLevel(index) {
+    const clamped = Math.max(0, Math.min(LEVELS.length - 1, index));
+    this._unloadLevel();
+
+    this.levelIndex = clamped;
+    this.level = buildLevel(LEVELS[clamped]);
+    this.scene.add(this.level.root);
+
+    this.navigation = new PlayerNavigation(this.level.nav, this.character);
+    this.navigation.placeAt(this.level.start);
+
+    this.interaction = new InteractionController({
+      camera: this.camera,
+      input: this.input,
+      nav: this.level.nav,
+      navigation: this.navigation,
+      mechanisms: this.level.mechanisms,
+      pickTargets: this.level.pickTargets,
+    });
 
     this.puzzles = new PuzzleManager({
       level: this.level,
@@ -185,14 +220,66 @@ export class Game {
       dust: this.dust,
       cameraController: this.cameraController,
       ui: this.ui,
-      onComplete: () => {
-        this.puzzles.completed = true;
-        this.interaction.enabled = false;
-        this.ui.showComplete();
-      },
+      onComplete: () => this._onLevelComplete(),
     });
 
-    this.post = new Postprocessing(this.renderer, this.scene, this.camera, { quality: this.quality });
+    this.dust.clear();
+    this._frameLevel();
+    this.audio.portalHum();
+
+    this.ui.hideComplete();
+    this.ui.hideHint();
+    this.ui.showLevelTitle(clamped + 1, this.level.name, this.level.definition.subtitle);
+    this.ui.setLevelProgress(this.progress, clamped);
+  }
+
+  /** Points the camera and the sun at wherever this level actually is. */
+  _frameLevel() {
+    const camera = { ...DEFAULT_CAMERA, ...this.level.camera };
+    this.cameraController.levelFocus.copy(this.level.focus);
+    this.cameraController.target.copy(this.level.focus);
+    this.cameraController.jumpTo(camera);
+
+    // The shadow camera is an orthographic box; it has to follow the level or
+    // half the structure falls outside it and simply stops casting.
+    this.sun.position.set(
+      this.level.focus.x + SUN_DIRECTION.x * 70,
+      this.level.focus.y + SUN_DIRECTION.y * 70,
+      this.level.focus.z + SUN_DIRECTION.z * 70,
+    );
+    this.sun.target.position.copy(this.level.focus);
+    this.sun.target.updateMatrixWorld();
+    this.sun.shadow.needsUpdate = true;
+  }
+
+  _unloadLevel() {
+    if (!this.level) return;
+    this.interaction.dispose();
+    this.audio.stopGrind();
+    disposeLevel(this.level);
+    this.level = null;
+    this.navigation = null;
+    this.interaction = null;
+    this.puzzles = null;
+    this.complete = null;
+  }
+
+  _onLevelComplete() {
+    this.puzzles.completed = true;
+    this.interaction.enabled = false;
+    const isNewGround = this.progress.complete(this.levelIndex);
+    this.ui.showComplete({
+      levelNumber: this.levelIndex + 1,
+      levelName: this.level.name,
+      hasNext: this.levelIndex < LEVELS.length - 1,
+      isFinale: this.levelIndex === LEVELS.length - 1,
+      isNewGround,
+    });
+    this.ui.setLevelProgress(this.progress, this.levelIndex);
+  }
+
+  restartLevel() {
+    this.loadLevel(this.levelIndex);
   }
 
   /* ---------------- lifecycle ---------------- */
@@ -200,6 +287,7 @@ export class Game {
   /** Called from the title tap, which is also what unlocks audio on iOS. */
   async start() {
     await this.audio.unlock();
+    if (!this.level) this.loadLevel(this.progress.highestUnlocked);
     this.audio.portalHum();
     if (!this.running) {
       this.running = true;
@@ -209,15 +297,7 @@ export class Game {
   }
 
   reset() {
-    this.puzzles.reset();
-    this.complete.reset();
-    this.dust.clear();
-    this.navigation.placeAt('start', 'start_n');
-    this.cameraController.jumpTo(START_CAMERA);
-    this.cameraController.target.copy(LEVEL_FOCUS);
-    this.interaction.enabled = true;
-    this.ui.hideComplete();
-    this.ui.hideHint();
+    this.restartLevel();
   }
 
   setQuality(quality) {
@@ -275,6 +355,7 @@ export class Game {
   }
 
   _update(dt) {
+    if (!this.level) return;
     this.puzzles.update(dt);
     this.navigation.update(dt);
     this.complete.update(dt);
@@ -284,11 +365,11 @@ export class Game {
 
     // The pennant is the only thing that moves without being asked to. It is
     // what keeps a stone diorama from reading as a still life.
-    if (this.level.pennant) {
-      this._pennantTime = (this._pennantTime ?? 0) + dt;
-      const t = this._pennantTime;
-      this.level.pennant.rotation.y = Math.sin(t * 1.7) * 0.42 + Math.sin(t * 0.63) * 0.22;
-      this.level.pennant.rotation.z = Math.sin(t * 2.3 + 1.0) * 0.1;
+    this._pennantTime = (this._pennantTime ?? 0) + dt;
+    const t = this._pennantTime;
+    for (const flag of this.level.pennants) {
+      flag.rotation.y = Math.sin(t * 1.7) * 0.42 + Math.sin(t * 0.63) * 0.22;
+      flag.rotation.z = Math.sin(t * 2.3 + 1.0) * 0.1;
     }
   }
 
@@ -303,7 +384,7 @@ export class Game {
     this.sky.dispose();
     this.post.dispose();
     this.character.dispose();
-    for (const mechanism of this.level.mechanisms) mechanism.dispose();
+    this._unloadLevel();
     this.renderer.dispose();
   }
 }

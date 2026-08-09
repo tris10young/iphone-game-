@@ -29,10 +29,14 @@ export class InteractionController {
     this._listeners = { activate: [], move: [], reject: [], focus: [] };
     this._hovered = null;
 
-    input.on('tap', (p) => this._onTap(p));
-    input.on('hover', (p) => this._onHover(p));
-    input.on('press', (p) => this._onHover(p));
-    input.on('release', () => this._setHovered(null));
+    // Kept as fields so dispose() can detach exactly these, and no others.
+    this._handlers = {
+      tap: (p) => this._onTap(p),
+      hover: (p) => this._onHover(p),
+      press: (p) => this._onHover(p),
+      release: () => this._setHovered(null),
+    };
+    for (const [event, fn] of Object.entries(this._handlers)) input.on(event, fn);
   }
 
   on(event, fn) {
@@ -135,5 +139,12 @@ export class InteractionController {
   /** Keep the highlight honest when a mechanism becomes (un)available. */
   refreshHover() {
     if (this._hovered && !this._canActivate(this._hovered)) this._setHovered(null);
+  }
+
+  /** Detaches from the shared input controller. Call before dropping a level. */
+  dispose() {
+    for (const [event, fn] of Object.entries(this._handlers)) this.input.off(event, fn);
+    this._setHovered(null);
+    this.enabled = false;
   }
 }

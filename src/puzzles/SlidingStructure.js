@@ -23,7 +23,7 @@ export class SlidingStructure extends PuzzleInteractable {
   constructor({
     x = 0, y = 0, z = 0,
     length = 10, width = 3, travel = 7,
-    wheel = { x: -6.1, z: 2.5 },
+    wheel = { x: -6.1, y: 0, z: 2.5 },
   } = {}) {
     super('sliding_bridge', {
       states: [-travel, 0],
@@ -31,6 +31,7 @@ export class SlidingStructure extends PuzzleInteractable {
       easing: Easing.smooth,
       initialIndex: 0,
       label: 'sliding bridge',
+      kind: 'slide',
     });
 
     this.length = length;
@@ -108,7 +109,9 @@ export class SlidingStructure extends PuzzleInteractable {
   _buildWheel() {
     const m = this.materials;
     const wheel = new THREE.Group();
-    wheel.position.set(this.wheelOffset.x, 0, this.wheelOffset.z);
+    // The wheel can sit at a different height to its bridge, which is what
+    // lets a level put the control somewhere you must climb to reach.
+    wheel.position.set(this.wheelOffset.x, this.wheelOffset.y ?? 0, this.wheelOffset.z);
     this.fixed.add(wheel);
 
     const base = new MeshBuilder();

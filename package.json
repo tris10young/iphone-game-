@@ -19,5 +19,8 @@
   "homepage": "https://github.com/tris10young/iphone-game-#readme",
   "dependencies": {
     "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.1"
   }
 }

@@ -185,3 +185,83 @@ html, body {
   .boot-sub { animation: none; }
   .panel { animation: none; }
 }
+
+
+/* ---- level title card ---- */
+
+.level-title {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--safe-top) + 74px);
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 700ms ease, transform 700ms ease;
+}
+.level-title.show { opacity: 1; transform: none; }
+.level-title-number {
+  font-size: 11px;
+  letter-spacing: 0.34em;
+  text-indent: 0.34em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.level-title-name {
+  margin-top: 5px;
+  font-size: 25px;
+  letter-spacing: 0.1em;
+  color: var(--ink);
+  text-shadow: 0 1px 14px rgba(255, 255, 255, 0.6);
+}
+.level-title-sub {
+  margin-top: 4px;
+  font-size: 13px;
+  letter-spacing: 0.03em;
+  color: var(--ink-soft);
+}
+
+/* ---- level select ---- */
+
+.level-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 68px);
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.level-chip {
+  width: 68px;
+  height: 68px;
+  border: 0;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.55);
+  font: inherit;
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: transform 150ms ease, background 150ms ease;
+}
+.level-chip:active { transform: scale(0.95); }
+.level-chip .n { font-size: 21px; letter-spacing: 0.04em; }
+.level-chip .par { font-size: 10px; letter-spacing: 0.1em; color: var(--ink-soft); }
+.level-chip.locked {
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--ink-soft);
+  cursor: default;
+}
+.level-chip.current { background: var(--turquoise); color: #fff; }
+.level-chip.current .par { color: rgba(255, 255, 255, 0.85); }
+.level-chip.done { background: rgba(255, 255, 255, 0.8); }
+
+.complete-sub {
+  margin: -8px 0 16px;
+  font-size: 14px;
+  letter-spacing: 0.05em;
+  color: var(--ink-soft);
+}

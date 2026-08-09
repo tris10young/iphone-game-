@@ -23,9 +23,11 @@ export class PuzzleInteractable {
    * @param {number} options.duration Seconds per transition.
    * @param {(t:number)=>number} options.easing
    */
-  constructor(id, { states, duration = 2.2, easing, initialIndex = 0, label = '' }) {
+  constructor(id, { states, duration = 2.2, easing, initialIndex = 0, label = '', kind = '' }) {
     this.id = id;
     this.label = label;
+    /** Coarse type, so generic code can react without instanceof checks. */
+    this.kind = kind;
     /** The part that actually moves. */
     this.group = new THREE.Group();
     this.group.name = id;
