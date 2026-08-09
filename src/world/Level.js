@@ -1,5 +1,8 @@
 import * as THREE from 'three';
-import { MeshBuilder, platform, staircase, pillar, archWall, carvedBand, parapet, xform } from './Build.js';
+import {
+  MeshBuilder, platform, staircase, pillar, archWall, carvedBand, parapet,
+  cupola, dome, pennant, windowSlot,
+} from './Build.js';
 import { Materials } from './Materials.js';
 import { Palette } from './Palette.js';
 import { NavGraph } from '../nav/NavGraph.js';
@@ -83,7 +86,10 @@ export function buildLevel() {
     ...mechanisms.flatMap((m) => m.pickables),
   ];
 
-  return { root, nav, mechanisms, rotating, sliding, elevator, portal: temple.portal, pickTargets, staticMeshes };
+  return {
+    root, nav, mechanisms, rotating, sliding, elevator,
+    portal: temple.portal, pennant: temple.pennant, pickTargets, staticMeshes,
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -95,10 +101,11 @@ function buildStart(mb) {
   platform(mb, STATIC_MATS, { ...s, thickness: 1.0, taperDepth: 4.5 });
   carvedBand(mb, Materials.trim, { x: s.x, y: s.y - 1.35, z: s.z, w: s.w + 0.5, d: s.d + 0.5, gap: 1.1 });
 
-  // A pair of low markers frame the departure point without a HUD arrow.
+  // A pair of domed markers frame the departure point without a HUD arrow.
   for (const sx of [-1, 1]) {
-    pillar(mb, STATIC_MATS, { x: s.x + sx * 2.9, y: s.y, z: s.z + 2.3, height: 2.6, radius: 0.34 });
-    mb.box(0.5, 0.5, 0.5, Materials.gold, { x: s.x + sx * 2.9, y: s.y + 2.9, z: s.z + 2.3, ry: Math.PI / 4 });
+    pillar(mb, STATIC_MATS, { x: s.x + sx * 2.9, y: s.y, z: s.z + 2.3, height: 2.4, radius: 0.34 });
+    dome(mb, Materials.ornament, { x: s.x + sx * 2.9, y: s.y + 2.4, z: s.z + 2.3, radius: 0.52, height: 0.62 });
+    mb.box(0.14, 0.34, 0.14, Materials.gold, { x: s.x + sx * 2.9, y: s.y + 3.2, z: s.z + 2.3 });
   }
   parapet(mb, STATIC_MATS, { x: s.x, y: s.y, z: s.z + s.d / 2 - 0.2, length: s.w - 1.4 });
 
@@ -113,12 +120,23 @@ function buildTower(mb) {
   mb.taper(t.w + 0.6, 5.2, 8.5, Materials.stoneDeep, { x: t.x, y: t.y - 5.75, z: t.z });
   mb.taper(5.2, 0.8, 4.0, Materials.stoneWarm, { x: t.x, y: t.y - 12.0, z: t.z });
 
-  // Corner pillars rising past the drum give the tower a real silhouette.
+  // Corner pillars rising past the drum give the tower a real silhouette, each
+  // capped with a domed cupola so the skyline is not four flat stumps.
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
-      pillar(mb, COOL_MATS, {
-        x: t.x + sx * (t.w / 2 - 0.85), y: t.y, z: t.z + sz * (t.d / 2 - 0.85),
-        height: 7.4, radius: 0.5,
+      const px = t.x + sx * (t.w / 2 - 0.85);
+      const pz = t.z + sz * (t.d / 2 - 0.85);
+      pillar(mb, COOL_MATS, { x: px, y: t.y, z: pz, height: 7.4, radius: 0.5 });
+      cupola(mb, COOL_MATS, { x: px, y: t.y + 7.4, z: pz, radius: 0.62, postHeight: 0.85,
+        accent: Materials.ornament });
+    }
+  }
+
+  // Windows in the tower flanks, so the shaft below the drum is not blank.
+  for (const sz of [-1, 1]) {
+    for (const offset of [-2.6, 0, 2.6]) {
+      windowSlot(mb, STATIC_MATS, {
+        x: t.x + offset, y: t.y - 4.4, z: t.z + sz * (t.w / 2 - 1.1), width: 0.62, height: 1.5,
       });
     }
   }
@@ -165,6 +183,10 @@ function buildTerraceB(mb) {
 
   parapet(mb, STATIC_MATS, { x: t.x, y: t.y, z: t.z - t.d / 2 + 0.2, length: 4.0, ry: 0 });
   parapet(mb, STATIC_MATS, { x: t.x, y: t.y, z: t.z + t.d / 2 - 0.2, length: 4.0, ry: 0 });
+  for (const sz of [-1, 1]) {
+    cupola(mb, COOL_MATS, { x: t.x - 3.6, y: t.y + 4.6, z: t.z + sz * 3.4, radius: 0.55,
+      postHeight: 0.75, accent: Materials.ornament });
+  }
   pillar(mb, COOL_MATS, { x: t.x - 3.6, y: t.y, z: t.z - 3.4, height: 4.6, radius: 0.44 });
   pillar(mb, COOL_MATS, { x: t.x - 3.6, y: t.y, z: t.z + 3.4, height: 4.6, radius: 0.44 });
 }
@@ -226,13 +248,19 @@ function buildTemple() {
   mb.box(t.w + 0.4, 0.55, roofDepth + 0.4, Materials.stone, { y: 6.2, z: roofZ });
   mb.box(t.w - 1.6, 0.5, roofDepth, Materials.stoneWarm, { y: 6.7, z: roofZ });
   mb.box(t.w - 3.4, 0.45, roofDepth - 1.2, Materials.trim, { y: 7.15, z: roofZ });
-  mb.box(0.7, 1.1, 0.7, Materials.gold, { y: 7.9, z: roofZ, ry: Math.PI / 4 });
+  mb.box(0.6, 0.8, 0.6, Materials.gold, { y: 7.75, z: roofZ, ry: Math.PI / 4 });
 
   const meshes = mb.build(group);
 
+  // A pennant over the temple. It is the only thing in the level that moves
+  // without the player asking, which is exactly why it earns its triangles.
+  const mast = pennant(group, Materials.stoneCool, Materials.ornament,
+    { y: 8.1, z: roofZ, height: 3.0 });
+  group.userData.pennant = mast.flag;
+
   const portal = buildPortal();
   group.add(portal);
-  return { group, portal, meshes };
+  return { group, portal, meshes, pennant: mast.flag };
 }
 
 function buildPortal() {

@@ -92,11 +92,18 @@ requires agreement), and **merged static geometry cannot be moved individually**
   geometry there, not scattered through the builders. Nav nodes are derived from
   the same constants; if you move a platform and forget its nodes, the level
   silently becomes unsolvable — run a playthrough test.
-- **`src/world/Palette.js` holds every colour.** The three tiers are load-bearing
-  gameplay signposting, not decoration: static architecture is cream, anything
-  that moves is a more saturated terracotta, the destination is turquoise and
-  gold. A new colour should belong to one of those tiers or it probably should
-  not exist.
+- **`src/world/Palette.js` holds every colour**, as named schemes (`coral`,
+  `amber`, `mist`), selectable with `?scheme=` in the URL. Two rules define the
+  look: a saturated background behind a single architectural hue (pale on pale
+  is what made an early pass read as washed out), and few colours per scene at
+  three tonal steps. The tiers are load-bearing gameplay signposting, not
+  decoration: static stone, a more saturated version for anything that moves,
+  and *glowing* turquoise/gold for the destination only. Note that ornament uses
+  a deeper non-emissive teal on purpose, so glow rather than hue marks the goal.
+- **The camera is orthographic.** Parallel verticals are most of why the level
+  reads as a held model. `distance` no longer affects framing — it only
+  positions the camera for depth sorting. Zoom is `frustumHeight`, in metres of
+  world space visible vertically.
 - **No asset files.** All audio is synthesised in `AudioSystem`; all textures are
   drawn to a canvas at startup. Do not add binary assets without a reason —
   `AudioSystem.registerSample(name, url)` is the intended path for real audio.
@@ -125,6 +132,9 @@ These were real bugs found by testing, and each is easy to recreate:
   ground and destroy the "no visible ground" requirement.
 - **Portrait is narrow.** A structure that sprawls horizontally cannot be framed
   on a phone. That is why the upper level folds back west over terrace A.
+- **Undersides need a bounce term.** Downward faces receive no sun, so without
+  `Palette.bounce` feeding the hemisphere ground colour they collapse to near
+  black and the floating masses read as heavy blots.
 
 ## Scope
 

@@ -45,7 +45,7 @@ export class LevelCompleteTrigger {
     this.elapsed = 0;
     this.audio.complete();
     this.camera.nudgeTo(this._portalWorld, { hold: SEQUENCE_LENGTH + 2, weight: 0.72 });
-    this.camera.targetDistance = clamp(this.camera.distance * 0.62, this.camera.minDistance, this.camera.maxDistance);
+    this.camera.targetHeight = clamp(this.camera.frustumHeight * 0.6, this.camera.minHeight, this.camera.maxHeight);
   }
 
   reset() {

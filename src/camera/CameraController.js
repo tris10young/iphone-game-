@@ -4,9 +4,16 @@ import { damp, clamp } from '../core/Easing.js';
 /**
  * Orbit camera for a miniature diorama.
  *
- * A low field of view (~22 degrees) gives the flattened, model-like look the
- * art direction needs while keeping just enough perspective to read a 40-metre
- * vertical structure -- a true orthographic camera makes the height ambiguous.
+ * Orthographic. Parallel verticals and a total absence of perspective
+ * convergence are what make a structure read as a held model rather than a
+ * place photographed from far away, and it is the single largest contributor
+ * to the look. The trade is that height is ambiguous without other cues, which
+ * is why the level leans on cast shadows, overlapping silhouettes and the
+ * receding cloud layers to establish depth.
+ *
+ * `distance` no longer affects framing -- with an orthographic projection it
+ * only positions the camera for depth sorting and clipping. Zoom is the
+ * frustum height, in metres of world space visible vertically.
  *
  * Feel notes, since they are the point of this class:
  *   - drag has inertia and spins down smoothly; it never snaps
@@ -23,7 +30,7 @@ const INERTIA_DAMPING = 3.6;
 const MAX_SPIN = 3.2;
 
 export class CameraController {
-  constructor(camera, { focus, distance = 112, minDistance = 52, maxDistance = 165 }) {
+  constructor(camera, { focus, frustumHeight = 54, minHeight = 30, maxHeight = 96, distance = 170 }) {
     this.camera = camera;
 
     this.azimuth = -0.72;
@@ -31,10 +38,14 @@ export class CameraController {
     this.minPolar = 0.52;
     this.maxPolar = 1.35;
 
+    /** Metres of world space visible vertically. This is the zoom control. */
+    this.frustumHeight = frustumHeight;
+    this.targetHeight = frustumHeight;
+    this.minHeight = minHeight;
+    this.maxHeight = maxHeight;
+    /** Fixed standoff; orthographic framing does not depend on it. */
     this.distance = distance;
-    this.targetDistance = distance;
-    this.minDistance = minDistance;
-    this.maxDistance = maxDistance;
+    this.aspect = 1;
 
     this.levelFocus = focus.clone();
     this.target = focus.clone();
@@ -57,8 +68,12 @@ export class CameraController {
    * nothing important sits under the Dynamic Island or the home indicator.
    */
   setSafeAreaLift(pixels, viewportHeight) {
-    const worldPerPixel = (2 * Math.tan((this.camera.fov * Math.PI) / 360) * this.distance) / viewportHeight;
-    this._safeAreaLift = pixels * worldPerPixel;
+    this._safeAreaLift = pixels * (this.frustumHeight / viewportHeight);
+  }
+
+  /** Called on resize; the orthographic frustum needs the viewport aspect. */
+  setAspect(aspect) {
+    this.aspect = aspect;
   }
 
   /** Called by the input layer on pointer down/up so inertia only runs after release. */
@@ -94,7 +109,7 @@ export class CameraController {
 
   zoom(ratio) {
     this.cancelNudge();
-    this.targetDistance = clamp(this.targetDistance * ratio, this.minDistance, this.maxDistance);
+    this.targetHeight = clamp(this.targetHeight * ratio, this.minHeight, this.maxHeight);
   }
 
   /** Gently bias framing toward a point (a mechanism that just started moving). */
@@ -107,10 +122,10 @@ export class CameraController {
   }
 
   /** Snap straight to a framing with no easing. Used on reset. */
-  jumpTo({ azimuth, polar, distance }) {
+  jumpTo({ azimuth, polar, frustumHeight }) {
     if (azimuth !== undefined) this.azimuth = azimuth;
     if (polar !== undefined) this.polar = polar;
-    if (distance !== undefined) this.distance = this.targetDistance = distance;
+    if (frustumHeight !== undefined) this.frustumHeight = this.targetHeight = frustumHeight;
     this.velocityAzimuth = this.velocityPolar = 0;
     this._nudge = null;
   }
@@ -130,7 +145,7 @@ export class CameraController {
     if (Math.abs(this.velocityAzimuth) < 1e-4) this.velocityAzimuth = 0;
     if (Math.abs(this.velocityPolar) < 1e-4) this.velocityPolar = 0;
 
-    this.distance = damp(this.distance, this.targetDistance, 7, dt);
+    this.frustumHeight = damp(this.frustumHeight, this.targetHeight, 7, dt);
 
     // --- where we would like to be looking ---
     this.desired.copy(this.levelFocus);
@@ -170,5 +185,13 @@ export class CameraController {
       this.target.z + this.distance * sinPolar * Math.cos(this.azimuth),
     );
     this.camera.lookAt(this.target);
+
+    const halfHeight = this.frustumHeight / 2;
+    const halfWidth = halfHeight * this.aspect;
+    this.camera.left = -halfWidth;
+    this.camera.right = halfWidth;
+    this.camera.top = halfHeight;
+    this.camera.bottom = -halfHeight;
+    this.camera.updateProjectionMatrix();
   }
 }

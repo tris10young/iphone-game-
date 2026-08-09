@@ -25,6 +25,10 @@ export const Materials = {
   trim: stone(Palette.trim),
   gold: stone(Palette.gold, { emissive: Palette.gold, emissiveIntensity: 0.18 }),
   turquoise: stone(Palette.turquoise, { emissive: Palette.turquoise, emissiveIntensity: 0.35 }),
+  // Decorative domes and finials. Deliberately a *deeper*, non-emissive teal:
+  // the destination tier keeps the light, glowing turquoise, so glow rather
+  // than hue is what tells the player where the goal is.
+  ornament: stone(Palette.ornament),
   cloak: stone(Palette.cloak),
   cloakDeep: stone(Palette.cloakDeep),
   skin: stone(Palette.skin),

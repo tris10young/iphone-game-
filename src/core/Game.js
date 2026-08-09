@@ -21,7 +21,7 @@ import { UI } from '../ui/UI.js';
  * knows about as few of the others as it can get away with.
  */
 
-const START_CAMERA = { azimuth: -0.45, polar: 0.97, distance: 112 };
+const START_CAMERA = { azimuth: -0.45, polar: 0.96, frustumHeight: 54 };
 
 export class Game {
   constructor(canvas) {
@@ -69,14 +69,16 @@ export class Game {
   _setupScene() {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(Palette.fog);
-    // Depth fog tuned to swallow the far cloud ring, not the level itself.
-    this.scene.fog = new THREE.Fog(Palette.fog, 100, 380);
+    // With an orthographic camera the standoff is fixed, so the level always
+    // sits at roughly the same view depth. Fog therefore starts just beyond it
+    // and only ever touches the cloud layers.
+    this.scene.fog = new THREE.Fog(Palette.fog, 210, 620);
 
-    this.camera = new THREE.PerspectiveCamera(22, 1, 1, 1600);
+    this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 10, 1400);
 
     // One warm sun, one cool sky fill. Anything more and the stylised flat
     // shading starts to look muddy.
-    this.sun = new THREE.DirectionalLight(Palette.sunLight, 1.85);
+    this.sun = new THREE.DirectionalLight(Palette.sunLight, 2.15);
     this.sun.position.set(
       LEVEL_FOCUS.x + SUN_DIRECTION.x * 70,
       LEVEL_FOCUS.y + SUN_DIRECTION.y * 70,
@@ -95,17 +97,17 @@ export class Game {
     // under the stairs without shadow acne on the big flat terraces.
     shadow.bias = -0.0006;
     shadow.normalBias = 0.035;
-    shadow.radius = 2.2;
+    shadow.radius = 1.1;
     // Shadows are lightened rather than left at full strength. Pastel stone in
     // a full-black shadow goes grey and muddy, and the brief explicitly rules
     // out overly dark lighting -- this keeps occluded faces tinted, not dead.
-    if ('intensity' in shadow) shadow.intensity = 0.62;
+    if ('intensity' in shadow) shadow.intensity = 0.7;
     this.scene.add(this.sun, this.sun.target);
 
-    this.skyLight = new THREE.HemisphereLight(Palette.skyLight, Palette.stoneDeep, 1.25);
+    this.skyLight = new THREE.HemisphereLight(Palette.skyLight, Palette.bounce, 1.15);
     this.scene.add(this.skyLight);
     // A faint fill from the opposite side stops undersides going flat black.
-    this.fill = new THREE.DirectionalLight(0xd8e6f2, 0.4);
+    this.fill = new THREE.DirectionalLight(Palette.bounce, 0.55);
     this.fill.position.set(30, -14, -34);
     this.scene.add(this.fill);
 
@@ -128,7 +130,7 @@ export class Game {
   _setupCameraAndInput() {
     this.cameraController = new CameraController(this.camera, {
       focus: LEVEL_FOCUS,
-      distance: START_CAMERA.distance,
+      frustumHeight: START_CAMERA.frustumHeight,
     });
     this.cameraController.jumpTo(START_CAMERA);
 
@@ -246,8 +248,7 @@ export class Game {
     // visual difference above 2x is invisible at this art style.
     const pixelRatio = Math.min(window.devicePixelRatio || 1, this.quality === 'high' ? 2 : 1.5);
 
-    this.camera.aspect = width / height;
-    this.camera.updateProjectionMatrix();
+    this.cameraController.setAspect(width / height);
     this.renderer.setPixelRatio(pixelRatio);
     this.renderer.setSize(width, height, false);
     this.post.setSize(width, height, pixelRatio);
@@ -280,6 +281,15 @@ export class Game {
     this.dust.update(dt);
     this.cameraController.update(dt, this.character.position);
     this.sky.update(dt, this.camera.position);
+
+    // The pennant is the only thing that moves without being asked to. It is
+    // what keeps a stone diorama from reading as a still life.
+    if (this.level.pennant) {
+      this._pennantTime = (this._pennantTime ?? 0) + dt;
+      const t = this._pennantTime;
+      this.level.pennant.rotation.y = Math.sin(t * 1.7) * 0.42 + Math.sin(t * 0.63) * 0.22;
+      this.level.pennant.rotation.z = Math.sin(t * 2.3 + 1.0) * 0.1;
+    }
   }
 
   dispose() {

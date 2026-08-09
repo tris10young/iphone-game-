@@ -215,3 +215,71 @@ export function parapet(mb, mats, { x = 0, y = 0, z = 0, length = 6, ry = 0, hei
   mb.box(length, height, 0.34, mats.top, { x, y: y + height / 2, z, ry });
   mb.box(length + 0.3, 0.18, 0.5, mats.side, { x, y: y + height + 0.09, z, ry });
 }
+
+/**
+ * A faceted dome cap. Eight segments on purpose -- a smooth hemisphere fights
+ * the flat-shaded, hand-built feel of everything around it.
+ */
+export function dome(mb, material, { x = 0, y = 0, z = 0, radius = 0.8, height = 0.9 }) {
+  const g = new THREE.SphereGeometry(radius, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2);
+  g.scale(1, height / radius, 1);
+  mb.add(g, material, xform({ x, y, z }));
+  g.dispose();
+}
+
+/**
+ * A small domed canopy on short posts. The most useful single ornament in the
+ * kit: it turns the top of any pillar or corner into deliberate architecture.
+ */
+export function cupola(mb, mats, { x = 0, y = 0, z = 0, radius = 0.85, postHeight = 1.1, accent }) {
+  const inset = radius * 0.62;
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      mb.box(0.2, postHeight, 0.2, mats.side, { x: x + sx * inset, y: y + postHeight / 2, z: z + sz * inset });
+    }
+  }
+  mb.box(radius * 2.3, 0.22, radius * 2.3, mats.side, { x, y: y + postHeight + 0.11, z });
+  dome(mb, accent ?? mats.top, { x, y: y + postHeight + 0.22, z, radius, height: radius * 1.15 });
+  mb.box(0.16, 0.42, 0.16, mats.top, { x, y: y + postHeight + radius * 1.15 + 0.42, z });
+}
+
+/**
+ * A pennant on a slender mast. Pure decoration, and worth every triangle: a
+ * single moving scrap of fabric is what stops a stone diorama reading as dead.
+ * Returns the flag mesh so the caller can animate it.
+ */
+export function pennant(parent, mastMaterial, flagMaterial, { x = 0, y = 0, z = 0, height = 3.2 }) {
+  const group = new THREE.Group();
+  group.position.set(x, y, z);
+  parent.add(group);
+
+  const mb = new MeshBuilder();
+  mb.cylinder(0.075, height, mastMaterial, { y: height / 2 }, 6);
+  mb.box(0.24, 0.24, 0.24, mastMaterial, { y: height + 0.1, ry: Math.PI / 4 });
+  mb.build(group);
+
+  // A two-triangle streamer, drawn double-sided so it reads from any orbit.
+  const flag = new THREE.BufferGeometry();
+  flag.setAttribute('position', new THREE.BufferAttribute(new Float32Array([
+    0, 0, 0, 1.7, 0.22, 0, 0, -0.72, 0,
+    1.7, 0.22, 0, 1.55, -0.42, 0, 0, -0.72, 0,
+  ]), 3));
+  flag.computeVertexNormals();
+  const mesh = new THREE.Mesh(flag, flagMaterial);
+  mesh.position.set(0.06, height - 0.35, 0);
+  mesh.castShadow = true;
+  group.add(mesh);
+
+  return { group, flag: mesh };
+}
+
+/** A recessed arched window slot. Reads as depth for the cost of two boxes. */
+export function windowSlot(mb, mats, { x = 0, y = 0, z = 0, ry = 0, width = 0.7, height = 1.4, depth = 0.3 }) {
+  mb.box(width + 0.34, height + 0.34, depth * 0.5, mats.side, { x, y: y + height / 2, z, ry });
+  mb.box(width, height, depth, mats.deep, { x, y: y + height / 2, z, ry });
+  const cap = new THREE.CylinderGeometry(width / 2, width / 2, depth, 8, 1, false, 0, Math.PI);
+  cap.rotateZ(-Math.PI / 2);
+  cap.rotateY(Math.PI / 2);
+  mb.add(cap, mats.deep, xform({ x, y: y + height, z, ry }));
+  cap.dispose();
+}

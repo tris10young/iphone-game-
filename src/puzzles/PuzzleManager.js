@@ -131,7 +131,7 @@ export class PuzzleManager {
         new THREE.Vector3(elevator.focus.x, elevator.origin.y + elevator.rise * 0.65, elevator.focus.z),
         { hold: elevator.duration, weight: 0.5 },
       );
-      this.camera.targetDistance = Math.min(this.camera.maxDistance, this.camera.distance + 9);
+      this.camera.targetHeight = Math.min(this.camera.maxHeight, this.camera.frustumHeight + 16);
     });
     elevator.on('settle', () => {
       this.audio.stopGrind();

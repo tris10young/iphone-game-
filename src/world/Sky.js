@@ -35,7 +35,7 @@ const SKY_FRAGMENT = /* glsl */`
     // the eye falls away into nothing. A flat colour here reads as white void.
     vec3 upper = mix(horizonColor, topColor, smoothstep(0.0, 0.20, h));
     vec3 lower = mix(horizonColor, bottomColor, smoothstep(0.0, -0.16, h));
-    lower = mix(lower, deepColor, smoothstep(-0.22, -0.85, h));
+    lower = mix(lower, deepColor, smoothstep(-0.12, -0.92, h));
     gl_FragColor = vec4(h > 0.0 ? upper : lower, 1.0);
   }
 `;
@@ -56,7 +56,7 @@ export class Sky {
   }
 
   _buildDome() {
-    const geometry = new THREE.SphereGeometry(900, 24, 16);
+    const geometry = new THREE.SphereGeometry(900, 40, 28);
     this.domeMaterial = new THREE.ShaderMaterial({
       uniforms: {
         topColor: { value: new THREE.Color(Palette.skyTop) },

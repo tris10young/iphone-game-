@@ -27,6 +27,7 @@ noted below.
 
 | Brief | Here | Why |
 | --- | --- | --- |
+| Orthographic or low-perspective camera | Orthographic | Parallel verticals; the level reads as a held model rather than a photographed place. |
 | Unity URP | Three.js + WebGL2 | Same lighting model in practice: one directional sun, hemisphere fill, soft shadow maps, bloom, colour grade, depth fog. |
 | Unity NavMesh | Custom navigation graph | Better suited, not a compromise. Half the walkable surface rotates, slides and rises; rebaking a navmesh every frame is the fiddly part. A graph node parented to a moving part simply travels with it, and "the bridge now connects" is one edge opening. |
 | Unity Input System | Pointer Events | One code path for touch on iPhone and mouse on desktop, which is exactly the "works in the editor and on device" requirement. |
@@ -132,9 +133,11 @@ texture (dust, motes, portal falloff) is drawn to a canvas at startup. Nothing t
 download, nothing to licence. `AudioSystem.registerSample(name, url)` swaps any
 cue for a real recording without touching another line.
 
-**Colour does work.** Static architecture is cream, anything that moves is a more
-saturated terracotta, and the destination is turquoise and gold. That is the
-only signposting the puzzle has.
+**Colour does work.** Static architecture is one hue, anything that moves is a
+more saturated version of it, and the destination is *glowing* turquoise and
+gold. That is the only signposting the puzzle has. Three schemes ship — `coral`
+(mint sky, coral stone), `amber` (amber sky, cream stone) and `mist` (teal sky,
+lilac stone) — switchable with `?scheme=mist` in the URL.
 
 **Performance.** 39k triangles and 95 draw calls including the shadow pass, from
 one merged mesh per material. Pixel ratio is capped at 2. `low` quality drops
