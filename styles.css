@@ -1,0 +1,187 @@
+/* Minimal, safe-area-aware UI. The game itself is the interface;
+   chrome stays out of the way. */
+
+:root {
+  --cream: #f6ead7;
+  --ink: #4a3b46;
+  --ink-soft: rgba(74, 59, 70, 0.62);
+  --panel: rgba(248, 238, 224, 0.94);
+  --turquoise: #4fbfb4;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #bfe0ea;
+  color: var(--ink);
+  font-family: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* Stop Safari's rubber-band scroll and double-tap zoom stealing game input. */
+  overscroll-behavior: none;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#scene {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+
+/* The UI layer is click-through by default; only real controls opt back in. */
+.ui {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.hidden { display: none !important; }
+
+/* ---- corner menu button ---- */
+
+.icon-button {
+  position: absolute;
+  top: calc(var(--safe-top) + 14px);
+  right: calc(var(--safe-right) + 14px);
+  width: 42px;
+  height: 42px;
+  padding: 12px 11px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border: 0;
+  border-radius: 21px;
+  background: rgba(248, 238, 224, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: auto;
+  cursor: pointer;
+  transition: background 180ms ease, transform 180ms ease;
+}
+.icon-button:active { transform: scale(0.94); }
+.icon-button span {
+  display: block;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--ink-soft);
+}
+.icon-button span:nth-child(2) { width: 70%; }
+
+/* ---- diegetic hint line ---- */
+
+.hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--safe-bottom) + 26px);
+  text-align: center;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  text-shadow: 0 1px 10px rgba(255, 255, 255, 0.55);
+  opacity: 0;
+  transition: opacity 700ms ease;
+  padding: 0 24px;
+}
+.hint.show { opacity: 1; }
+
+/* ---- panels ---- */
+
+.panel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  pointer-events: auto;
+  background: rgba(246, 234, 215, 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  padding: calc(var(--safe-top) + 20px) 24px calc(var(--safe-bottom) + 20px);
+  animation: fade-in 420ms ease both;
+}
+
+.panel h1, .panel h2 {
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  margin: 0 0 18px;
+  color: var(--ink);
+}
+.panel h1 { font-size: clamp(28px, 8vw, 40px); }
+.panel h2 { font-size: 22px; }
+
+.text-button {
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 17px;
+  letter-spacing: 0.05em;
+  color: var(--ink-soft);
+  padding: 12px 22px;
+  border-radius: 22px;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+.text-button em { font-style: normal; color: var(--turquoise); }
+.text-button:active { transform: scale(0.96); }
+.text-button.primary {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.55);
+  margin-top: 6px;
+  padding: 13px 40px;
+}
+
+/* ---- boot / audio-unlock veil ---- */
+
+.boot {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(170deg, #cfe6ee 0%, #f3ddd0 100%);
+  transition: opacity 900ms ease;
+}
+.boot.gone { opacity: 0; pointer-events: none; }
+.boot-inner { text-align: center; }
+.boot-title {
+  font-size: 34px;
+  letter-spacing: 0.34em;
+  text-indent: 0.34em;
+  color: var(--ink);
+  font-weight: 400;
+}
+.boot-sub {
+  margin-top: 14px;
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  text-indent: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  animation: pulse 2.6s ease-in-out infinite;
+}
+
+@keyframes pulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 0.95; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .boot-sub { animation: none; }
+  .panel { animation: none; }
+}

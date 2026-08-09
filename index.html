@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Skyward — Puzzle 01</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#bfe0ea" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Skyward" />
+<link rel="manifest" href="./manifest.webmanifest" />
+<link rel="apple-touch-icon" href="./icon.png" />
+<link rel="icon" href="./icon.png" />
+<link rel="stylesheet" href="./styles.css" />
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/three.module.js",
+    "three/addons/": "./vendor/three/addons/"
+  }
+}
+</script>
+</head>
+<body>
+  <canvas id="scene"></canvas>
+
+  <div id="ui" class="ui">
+    <button id="menu-button" class="icon-button" aria-label="Pause and settings">
+      <span></span><span></span><span></span>
+    </button>
+
+    <div id="hint" class="hint" aria-live="polite"></div>
+
+    <div id="menu" class="panel hidden" role="dialog" aria-label="Paused">
+      <h2>Paused</h2>
+      <button class="text-button" data-action="resume">Resume</button>
+      <button class="text-button" data-action="restart">Restart puzzle</button>
+      <button class="text-button" data-action="toggle-audio">Sound: <em data-audio-state>on</em></button>
+      <button class="text-button" data-action="toggle-quality">Quality: <em data-quality-state>high</em></button>
+    </div>
+
+    <div id="complete" class="panel complete hidden" role="dialog" aria-label="Puzzle complete">
+      <h1>Puzzle Complete</h1>
+      <button class="text-button primary" data-action="replay">Replay</button>
+    </div>
+  </div>
+
+  <div id="boot" class="boot">
+    <div class="boot-inner">
+      <div class="boot-title">Skyward</div>
+      <div class="boot-sub" id="boot-sub">Tap to begin</div>
+    </div>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+{
+  "name": "iphone-game-",
+  "version": "1.0.0",
+  "description": "Game 1.T",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tris10young/iphone-game-.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/tris10young/iphone-game-/issues"
+  },
+  "homepage": "https://github.com/tris10young/iphone-game-#readme",
+  "dependencies": {
+    "three": "^0.185.1"
+  }
+}

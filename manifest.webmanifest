@@ -1,0 +1,10 @@
+{
+  "name": "Skyward",
+  "short_name": "Skyward",
+  "start_url": "./index.html",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#cfe6ee",
+  "theme_color": "#bfe0ea",
+  "icons": [{ "src": "./icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }]
+}
