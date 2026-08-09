@@ -42,6 +42,11 @@ export class Game {
     this._setupCameraAndInput();
     this._setupSystems();
 
+    // Built now, behind the title veil, rather than on the tap that lifts it.
+    // Doing it on the tap made the first tap look like it had done nothing
+    // while the level assembled and the shaders compiled.
+    this.loadLevel(this.progress.highestUnlocked);
+
     this._onResize = this._onResize.bind(this);
     this._onVisibility = this._onVisibility.bind(this);
     window.addEventListener('resize', this._onResize);
@@ -287,8 +292,10 @@ export class Game {
   /** Called from the title tap, which is also what unlocks audio on iOS. */
   async start() {
     await this.audio.unlock();
-    if (!this.level) this.loadLevel(this.progress.highestUnlocked);
     this.audio.portalHum();
+    // The title card was shown while the veil still covered it, so show it
+    // again now that the player can actually see the level.
+    this.ui.showLevelTitle(this.levelIndex + 1, this.level.name, this.level.definition.subtitle);
     if (!this.running) {
       this.running = true;
       this._clock.start();
@@ -371,6 +378,18 @@ export class Game {
       flag.rotation.y = Math.sin(t * 1.7) * 0.42 + Math.sin(t * 0.63) * 0.22;
       flag.rotation.z = Math.sin(t * 2.3 + 1.0) * 0.1;
     }
+  }
+
+  /**
+   * Compiles every shader the scene needs before the first visible frame.
+   *
+   * Without this, the first frame after the veil lifts stalls for as long as
+   * the GPU takes to build the programs. On a phone that reads as the tap
+   * having done nothing, which is exactly what it looked like.
+   */
+  warmUp() {
+    this.renderer.compile(this.scene, this.camera);
+    this.post.render(0);
   }
 
   dispose() {

@@ -25,9 +25,11 @@ game.ui.onBootTap(async () => {
   await game.start();
 });
 
-// Render one frame immediately so the scene is warm and the shaders are
-// compiled before the veil lifts.
-game.post.render(0);
-
-// Handy for poking at the level from a console during development.
+// Handy for poking at the level from a console during development. Assigned
+// before warm-up so it exists during the slowest part of startup.
 window.game = game;
+
+// Compile shaders and render one frame now, while the veil still covers the
+// canvas, so the first frame the player sees costs nothing.
+game.warmUp();
+document.getElementById('boot-sub').textContent = 'Tap to begin';
