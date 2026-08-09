@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Medieval Battle Prototype</title>
+<link rel="stylesheet" href="./style.css" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14' font-size='14'%3E%E2%9A%94%3C/text%3E%3C/svg%3E" />
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three.module.js"
+  }
+}
+</script>
+</head>
+<body>
+<div id="app"></div>
+
+<div id="ui">
+  <!-- Top left: army rosters -->
+  <div id="rosters" class="panel">
+    <div class="roster">
+      <span class="label blue">Player Army</span>
+      <span id="player-count" class="count">20/20</span>
+    </div>
+    <div class="roster">
+      <span class="label red">Enemy Army</span>
+      <span id="enemy-count" class="count">20/20</span>
+    </div>
+  </div>
+
+  <!-- Top centre: current mode -->
+  <div id="mode" class="panel">
+    <div class="mode-label">Current Mode</div>
+    <div id="mode-value">TACTICAL MODE</div>
+  </div>
+
+  <!-- Centre: selection / status toast -->
+  <div id="toast"></div>
+
+  <!-- Centre: battle result -->
+  <div id="result" class="hidden">
+    <div id="result-title">VICTORY</div>
+    <div id="result-sub">Press R to Restart</div>
+  </div>
+
+  <!-- First person crosshair -->
+  <div id="crosshair" class="hidden"></div>
+
+  <!-- Bottom centre: contextual controls -->
+  <div id="controls" class="panel">
+    <div id="controls-tactical">
+      <span><b>Left Click</b> Select Army</span>
+      <span><b>Right Click</b> Move Army</span>
+      <span><b>WASD</b> Pan Camera</span>
+      <span><b>Wheel</b> Zoom</span>
+      <span><b>Right/Middle Drag</b> Rotate</span>
+      <span><b>F</b> Enter First Person</span>
+      <span><b>H</b> Debug</span>
+    </div>
+    <div id="controls-fp" class="hidden">
+      <span><b>WASD</b> Move</span>
+      <span><b>Mouse</b> Look</span>
+      <span><b>Shift</b> Sprint</span>
+      <span><b>Space</b> Jump</span>
+      <span><b>Left Mouse</b> Attack</span>
+      <span><b>F</b> Tactical View</span>
+    </div>
+  </div>
+
+  <!-- Pointer lock hint -->
+  <div id="lock-hint" class="hidden">Click to look around</div>
+</div>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
