@@ -7,8 +7,9 @@ import { CONFIG } from './config.js';
  * without knowing how the terrain is generated.
  */
 export class Battlefield {
-  constructor(scene) {
+  constructor(scene, { lowQuality = false } = {}) {
     this.scene = scene;
+    this.lowQuality = lowQuality;
     this.width = CONFIG.field.width;
     this.length = CONFIG.field.length;
     this.amplitude = CONFIG.field.hillAmplitude;
@@ -36,7 +37,7 @@ export class Battlefield {
   }
 
   _buildTerrain() {
-    const segments = 96;
+    const segments = this.lowQuality ? 48 : 96;
     const geometry = new THREE.PlaneGeometry(this.width, this.length, segments, segments);
     geometry.rotateX(-Math.PI / 2);
 
@@ -68,7 +69,8 @@ export class Battlefield {
     const sun = new THREE.DirectionalLight(0xfff2d8, 2.1);
     sun.position.set(60, 90, 40);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
+    const shadowSize = this.lowQuality ? 1024 : 2048;
+    sun.shadow.mapSize.set(shadowSize, shadowSize);
     sun.shadow.bias = -0.0008;
     sun.shadow.normalBias = 0.02;
 

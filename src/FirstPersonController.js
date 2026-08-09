@@ -24,7 +24,6 @@ export class FirstPersonController {
     this.attackCooldown = 0;
     this.hitApplied = false;
     this.bobPhase = 0;
-    this._wasAttackDown = false;
     this._forward = new THREE.Vector3();
 
     this._buildViewModel();
@@ -84,8 +83,7 @@ export class FirstPersonController {
     this.commander.setVisible(false);
     this.viewModel.visible = true;
     this.verticalVelocity = 0;
-    this._wasAttackDown = true; // ignore the click that may have triggered the switch
-    this.input.requestPointerLock();
+    if (!this.input.isTouch) this.input.requestPointerLock();
   }
 
   deactivate() {
@@ -113,14 +111,13 @@ export class FirstPersonController {
   }
 
   _updateLook() {
-    if (!this.input.pointerLocked) return;
+    const look = this.input.lookDelta();
+    this._lastLook = look;
+    if (look.x === 0 && look.y === 0) return;
+
     const cam = this.cameraManager;
-    cam.fpYaw -= this.input.mouseDX * C.lookSensitivity;
-    cam.fpPitch = THREE.MathUtils.clamp(
-      cam.fpPitch - this.input.mouseDY * C.lookSensitivity,
-      -1.45,
-      1.45
-    );
+    cam.fpYaw -= look.x * C.lookSensitivity;
+    cam.fpPitch = THREE.MathUtils.clamp(cam.fpPitch - look.y * C.lookSensitivity, -1.45, 1.45);
     // Keep the body pointing where the camera looks (model faces +Z).
     this.commander.facing = cam.fpYaw + Math.PI;
   }
@@ -135,20 +132,18 @@ export class FirstPersonController {
     const rx = Math.cos(yaw);
     const rz = -Math.sin(yaw);
 
-    let mx = 0;
-    let mz = 0;
-    if (input.isDown('KeyW')) { mx += fx; mz += fz; }
-    if (input.isDown('KeyS')) { mx -= fx; mz -= fz; }
-    if (input.isDown('KeyD')) { mx += rx; mz += rz; }
-    if (input.isDown('KeyA')) { mx -= rx; mz -= rz; }
+    // Analogue on touch, digital on a keyboard — same intent either way.
+    const axis = input.moveAxis();
+    const mx = fx * axis.y + rx * axis.x;
+    const mz = fz * axis.y + rz * axis.x;
 
-    const moving = mx !== 0 || mz !== 0;
+    const moving = axis.length > 0.05;
     const pos = this.commander.position;
 
     if (moving) {
-      const len = Math.hypot(mx, mz);
-      const sprinting = input.isDown('ShiftLeft') || input.isDown('ShiftRight');
-      const speed = sprinting ? C.sprintSpeed : C.walkSpeed;
+      const sprinting = input.sprintDown();
+      const speed = (sprinting ? C.sprintSpeed : C.walkSpeed) * axis.length;
+      const len = Math.hypot(mx, mz) || 1;
       pos.x += (mx / len) * speed * dt;
       pos.z += (mz / len) * speed * dt;
       this.battlefield.clamp(pos);
@@ -157,7 +152,7 @@ export class FirstPersonController {
 
     // Vertical: jump + gravity, always resolved against the terrain surface.
     const groundY = this.battlefield.getHeight(pos.x, pos.z);
-    if (this.grounded && input.justPressed('Space')) {
+    if (this.grounded && input.jumpPressed()) {
       this.verticalVelocity = C.jumpVelocity;
       this.grounded = false;
     }
@@ -180,17 +175,17 @@ export class FirstPersonController {
   _updateAttack(dt) {
     if (this.attackCooldown > 0) this.attackCooldown -= dt;
 
-    const down = this.input.isButtonDown(0);
-    const clicked = down && !this._wasAttackDown;
-    this._wasAttackDown = down;
+    const pressed = this.input.attackPressed();
 
-    // Clicking while unlocked just re-acquires the mouse.
-    if (clicked && !this.input.pointerLocked) {
+    // On a mouse, clicking while unlocked just re-acquires the pointer.
+    if (pressed && !this.input.isTouch && !this.input.pointerLocked) {
       this.input.requestPointerLock();
       return;
     }
 
-    if (clicked && this.attackCooldown <= 0) {
+    // A tap swings once; holding repeats at the cooldown, mouse or thumb alike.
+    const wantsSwing = pressed || this.input.attackHeld();
+    if (wantsSwing && this.attackCooldown <= 0) {
       this.attackCooldown = C.attackCooldown;
       this.swingTimer = C.swingDuration;
       this.hitApplied = false;
@@ -221,8 +216,9 @@ export class FirstPersonController {
     // Idle sway from walking, plus a little lag behind mouse movement.
     const sway = Math.sin(this.bobPhase) * 0.012;
     const swayY = Math.cos(this.bobPhase * 2) * 0.01;
-    const lagX = THREE.MathUtils.clamp(-this.input.mouseDX * 0.0006, -0.05, 0.05);
-    const lagY = THREE.MathUtils.clamp(this.input.mouseDY * 0.0006, -0.05, 0.05);
+    const look = this._lastLook || { x: 0, y: 0 };
+    const lagX = THREE.MathUtils.clamp(-look.x * 0.0006, -0.05, 0.05);
+    const lagY = THREE.MathUtils.clamp(look.y * 0.0006, -0.05, 0.05);
 
     let swingRotX = 0;
     let swingRotZ = 0;
@@ -236,8 +232,14 @@ export class FirstPersonController {
       swingPosZ = -0.16 * curve;
     }
 
+    // A phone in landscape has a much wider horizontal FOV than a desktop
+    // window, which drags a fixed offset back toward the centre of the screen.
+    // Scale the resting offset with aspect so the sword stays in the corner.
+    const aspect = this.cameraManager.fpCamera.aspect;
+    const restX = rest.position.x * Math.max(1, aspect / 1.7);
+
     const target = {
-      x: rest.position.x + sway + lagX,
+      x: restX + sway + lagX,
       y: rest.position.y + swayY + lagY,
       z: rest.position.z + swingPosZ,
     };

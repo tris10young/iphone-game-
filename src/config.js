@@ -66,6 +66,7 @@ export const CONFIG = {
     maxPitch: 1.45,
     yaw: Math.PI, // look from the player army's side of the field
     panSpeed: 40, // units/second at default zoom
+    dragPanSpeed: 0.0022, // world units per screen px, per unit of camera distance
     zoomSpeed: 0.0016,
     rotateSpeed: 0.005,
     smoothing: 10, // higher == snappier

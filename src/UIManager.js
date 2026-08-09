@@ -14,6 +14,9 @@ export class UIManager {
     this.controlsTactical = document.getElementById('controls-tactical');
     this.controlsFp = document.getElementById('controls-fp');
     this.lockHint = document.getElementById('lock-hint');
+    this.touchTactical = document.getElementById('touch-tactical');
+    this.touchFp = document.getElementById('touch-fp');
+    this.touchRestart = document.getElementById('btn-restart');
 
     this._toastTimer = 0;
     this._lastPlayer = -1;
@@ -37,6 +40,8 @@ export class UIManager {
     this.controlsTactical.classList.toggle('hidden', firstPerson);
     this.controlsFp.classList.toggle('hidden', !firstPerson);
     this.crosshair.classList.toggle('hidden', !firstPerson);
+    this.touchTactical.classList.toggle('hidden', firstPerson);
+    this.touchFp.classList.toggle('hidden', !firstPerson);
   }
 
   setPointerLockHint(visible) {
@@ -65,8 +70,13 @@ export class UIManager {
       this.resultTitle.classList.toggle('victory', victory);
       this.resultTitle.classList.toggle('defeat', !victory);
       this.result.classList.remove('hidden');
+      this.touchRestart.classList.remove('hidden');
+      // The touch controls would sit on top of the result screen.
+      this.touchTactical.classList.add('hidden');
+      this.touchFp.classList.add('hidden');
     } else {
       this.result.classList.add('hidden');
+      this.touchRestart.classList.add('hidden');
     }
   }
 

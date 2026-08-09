@@ -138,23 +138,32 @@ export class CameraManager {
       this.battlefield.clamp(this.desiredTarget);
     }
 
-    // Zoom.
-    if (input.wheel !== 0) {
+    // Drag-pan (touch): move the world under the finger.
+    if (input.panDelta.x !== 0 || input.panDelta.y !== 0) {
+      const k = this.distance * T.dragPanSpeed;
+      // left = (fz, -fx); dragging right pushes the camera left.
+      this.desiredTarget.x += fz * input.panDelta.x * k + fx * input.panDelta.y * k;
+      this.desiredTarget.z += -fx * input.panDelta.x * k + fz * input.panDelta.y * k;
+      this.battlefield.clamp(this.desiredTarget);
+    }
+
+    // Zoom: mouse wheel or pinch, both in wheel-equivalent units.
+    const zoom = input.wheel + input.zoomDelta;
+    if (zoom !== 0) {
       this.desiredDistance = THREE.MathUtils.clamp(
-        this.desiredDistance * (1 + input.wheel * T.zoomSpeed),
+        this.desiredDistance * (1 + zoom * T.zoomSpeed),
         T.minDistance,
         T.maxDistance
       );
     }
 
-    // Rotate with right or middle drag.
-    if (input.isButtonDown(2) || input.isButtonDown(1)) {
-      this.yaw -= input.mouseDX * T.rotateSpeed;
-      this.pitch = THREE.MathUtils.clamp(
-        this.pitch + input.mouseDY * T.rotateSpeed,
-        T.minPitch,
-        T.maxPitch
-      );
+    // Rotate: right/middle drag, or a two-finger drag.
+    const dragging = input.isButtonDown(2) || input.isButtonDown(1);
+    const rotX = (dragging ? input.mouseDX : 0) + input.orbitDelta.x;
+    const rotY = (dragging ? input.mouseDY : 0) + input.orbitDelta.y;
+    if (rotX !== 0 || rotY !== 0) {
+      this.yaw -= rotX * T.rotateSpeed;
+      this.pitch = THREE.MathUtils.clamp(this.pitch + rotY * T.rotateSpeed, T.minPitch, T.maxPitch);
     }
   }
 

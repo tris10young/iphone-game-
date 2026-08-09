@@ -58,7 +58,7 @@ export class CommandController {
   }
 
   update(dt, input) {
-    for (const click of input.takeClicks(0)) this._handleSelectClick(click);
+    for (const click of input.takeClicks(0)) this._handleSelectClick(click, click.touch);
     for (const click of input.takeClicks(2)) this._handleOrderClick(click);
 
     if (this.marker.visible) {
@@ -71,7 +71,7 @@ export class CommandController {
     }
   }
 
-  _handleSelectClick(click) {
+  _handleSelectClick(click, isTouch) {
     const camera = this.cameraManager.pickCamera;
     this.raycaster.setFromCamera(click.ndc, camera);
 
@@ -80,9 +80,16 @@ export class CommandController {
     if (hits.length > 0) {
       this.setSelected(true);
       this.ui.showToast('Army Selected');
-    } else {
-      this.setSelected(false);
+      return;
     }
+
+    // There is no right button on a phone: once the army is selected, a tap on
+    // open ground is the move order rather than a deselect.
+    if (isTouch && this.selected) {
+      this._handleOrderClick(click);
+      return;
+    }
+    this.setSelected(false);
   }
 
   _handleOrderClick(click) {

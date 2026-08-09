@@ -11,6 +11,7 @@ import { InputManager } from './InputManager.js';
 import { UIManager } from './UIManager.js';
 import { BattleManager, BattleState } from './BattleManager.js';
 import { DebugView } from './DebugView.js';
+import { TouchControls } from './TouchControls.js';
 import { SoldierState } from './Soldier.js';
 
 /**
@@ -22,18 +23,25 @@ export class Game {
   constructor(container) {
     this.container = container;
 
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // Phones run this at native resolution on a mobile GPU, so drop the sample
+    // count and the shadow budget rather than the frame rate.
+    this.isMobile = window.matchMedia('(pointer: coarse) and (hover: none)').matches;
+
+    this.renderer = new THREE.WebGLRenderer({
+      antialias: !this.isMobile,
+      powerPreference: 'high-performance',
+    });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.isMobile ? 1.5 : 2));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = this.isMobile ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     container.appendChild(this.renderer.domElement);
 
     this.scene = new THREE.Scene();
     this.clock = new THREE.Clock();
 
-    this.battlefield = new Battlefield(this.scene);
+    this.battlefield = new Battlefield(this.scene, { lowQuality: this.isMobile });
     this.input = new InputManager(this.renderer.domElement);
     this.ui = new UIManager();
     this.cameraManager = new CameraManager(window.innerWidth / window.innerHeight, this.battlefield);
@@ -48,8 +56,31 @@ export class Game {
 
     this._buildBattle();
 
+    if (this.isMobile) {
+      this.touch = new TouchControls({ input: this.input, game: this, canvas: this.renderer.domElement });
+    }
+
     this._onResize = () => this._resize();
     window.addEventListener('resize', this._onResize);
+    window.addEventListener('orientationchange', this._onResize);
+    // iOS changes the viewport when the Safari chrome shows and hides.
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', this._onResize);
+  }
+
+  // -------------------------------------------------------------------------
+  // Public intents (used by the touch UI, which has no keyboard to press)
+  // -------------------------------------------------------------------------
+  isFirstPerson() {
+    return this.cameraManager.mode === CameraMode.FIRST_PERSON;
+  }
+
+  requestModeToggle() {
+    this.combat.resumeAudio();
+    if (!this.battle.isOver) this._toggleMode();
+  }
+
+  requestRestart() {
+    if (this.battle.isOver) this.restart();
   }
 
   // -------------------------------------------------------------------------
@@ -219,6 +250,7 @@ export class Game {
   }
 
   _toggleMode() {
+    if (this.touch) this.touch.clearHeldButtons();
     if (this.cameraManager.mode === CameraMode.TACTICAL) {
       if (!this.commander.alive) return;
       this.cameraManager.enterFirstPerson(this.commander);

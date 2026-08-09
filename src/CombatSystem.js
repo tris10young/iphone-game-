@@ -175,7 +175,20 @@ export class CombatSystem {
     }
   }
 
+  /**
+   * Must be called from inside a real user gesture — iOS will not start an
+   * AudioContext any other way.
+   */
   resumeAudio() {
-    if (this._audio && this._audio.state === 'suspended') this._audio.resume();
+    try {
+      if (!this._audio) {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+        this._audio = new Ctx();
+      }
+      if (this._audio.state === 'suspended') this._audio.resume();
+    } catch {
+      /* audio is cosmetic */
+    }
   }
 }

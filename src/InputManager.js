@@ -14,6 +14,7 @@ export class InputManager {
     this.keys = new Set();
     this.pressed = new Set(); // keys that went down this frame
     this.buttons = new Set(); // mouse buttons currently held
+    this.mousePressed = new Set(); // mouse buttons pressed this frame (never touch)
 
     this.pointer = new THREE.Vector2(); // normalised device coords
     this.mouseDX = 0;
@@ -22,8 +23,86 @@ export class InputManager {
     this.clicks = []; // {button, ndc:THREE.Vector2}
     this.pointerLocked = false;
 
+    // Device class: a phone or tablet, i.e. coarse pointer with no hover. This
+    // decides the UI and render quality, never how an individual event is read
+    // — plenty of laptops report touch support while being driven by a mouse.
+    this.isTouch = window.matchMedia('(pointer: coarse) and (hover: none)').matches;
+    this.touchPointers = new Set(); // touch pointers currently down
+    this.suppressClicks = false; // set during multi-touch gestures
+
+    this.panDelta = { x: 0, y: 0 }; // screen px, tactical camera pan
+    this.orbitDelta = { x: 0, y: 0 }; // screen px, tactical camera rotate
+    this.zoomDelta = 0; // wheel-equivalent units
+    this.virtualAxis = { x: 0, y: 0 }; // analogue stick: x = strafe, y = forward
+    this.virtualLook = { x: 0, y: 0 }; // screen px, first person look
+    this.virtualButtons = new Set(); // held: 'attack' | 'sprint'
+    this.virtualPressed = new Set(); // pressed this frame: 'jump'
+
     this._downAt = new Map(); // button -> {x, y, moved}
     this._bind();
+  }
+
+  // -------------------------------------------------------------------------
+  // Abstract intents — the only thing gameplay systems should read.
+  // -------------------------------------------------------------------------
+
+  /** Movement intent: {x: strafe, y: forward}, magnitude clamped to 1. */
+  moveAxis() {
+    let x = this.virtualAxis.x;
+    let y = this.virtualAxis.y;
+    if (this.isDown('KeyW')) y += 1;
+    if (this.isDown('KeyS')) y -= 1;
+    if (this.isDown('KeyD')) x += 1;
+    if (this.isDown('KeyA')) x -= 1;
+
+    const length = Math.hypot(x, y);
+    if (length > 1) {
+      x /= length;
+      y /= length;
+    }
+    return { x, y, length: Math.min(1, length) };
+  }
+
+  /** Look intent in screen pixels. Mouse only counts while the pointer is locked. */
+  lookDelta() {
+    const locked = this.pointerLocked;
+    return {
+      x: (locked ? this.mouseDX : 0) + this.virtualLook.x,
+      y: (locked ? this.mouseDY : 0) + this.virtualLook.y,
+    };
+  }
+
+  /**
+   * Attack pressed this frame. This is an edge, not a held state: a click that
+   * begins and ends between two frames would otherwise be dropped entirely.
+   * A finger on the canvas is a look-drag and never counts — but a real mouse
+   * button does, even on a device that also has a touchscreen.
+   */
+  attackPressed() {
+    return this.mousePressed.has(0) || this.virtualPressed.has('attack');
+  }
+
+  /** Attack held — used for the on-screen button's auto-repeat. */
+  attackHeld() {
+    const mouseDown = this.isButtonDown(0) && this.touchPointers.size === 0;
+    return mouseDown || this.virtualButtons.has('attack');
+  }
+
+  sprintDown() {
+    return this.isDown('ShiftLeft') || this.isDown('ShiftRight') || this.virtualButtons.has('sprint');
+  }
+
+  jumpPressed() {
+    return this.justPressed('Space') || this.virtualPressed.has('jump');
+  }
+
+  setVirtualButton(name, down) {
+    if (down) {
+      if (!this.virtualButtons.has(name)) this.virtualPressed.add(name);
+      this.virtualButtons.add(name);
+    } else {
+      this.virtualButtons.delete(name);
+    }
   }
 
   _bind() {
@@ -45,7 +124,14 @@ export class InputManager {
 
     this._onPointerDown = (e) => {
       this.buttons.add(e.button);
-      this._downAt.set(e.button, { x: e.clientX, y: e.clientY, moved: false });
+      if (e.pointerType === 'touch') this.touchPointers.add(e.pointerId);
+      else this.mousePressed.add(e.button);
+      this._downAt.set(e.button, {
+        x: e.clientX,
+        y: e.clientY,
+        moved: false,
+        touch: e.pointerType === 'touch',
+      });
       this._updatePointer(e);
     };
 
@@ -66,11 +152,12 @@ export class InputManager {
 
     this._onPointerUp = (e) => {
       this.buttons.delete(e.button);
+      this.touchPointers.delete(e.pointerId);
       const origin = this._downAt.get(e.button);
       this._downAt.delete(e.button);
       this._updatePointer(e);
-      if (origin && !origin.moved) {
-        this.clicks.push({ button: e.button, ndc: this.pointer.clone() });
+      if (origin && !origin.moved && !this.suppressClicks) {
+        this.clicks.push({ button: e.button, ndc: this.pointer.clone(), touch: origin.touch });
       }
     };
 
@@ -129,10 +216,16 @@ export class InputManager {
 
   endFrame() {
     this.pressed.clear();
+    this.mousePressed.clear();
     this.clicks.length = 0;
     this.mouseDX = 0;
     this.mouseDY = 0;
     this.wheel = 0;
+    this.panDelta.x = this.panDelta.y = 0;
+    this.orbitDelta.x = this.orbitDelta.y = 0;
+    this.zoomDelta = 0;
+    this.virtualLook.x = this.virtualLook.y = 0;
+    this.virtualPressed.clear();
   }
 
   dispose() {
